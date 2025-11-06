@@ -1,0 +1,319 @@
+{
+  "name": "WordPress to Facebook AI Loop",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "name": "Schedule Trigger",
+      "id": "edb1d9f6-90a0-4179-9877-c76376654283"
+    },
+    {
+      "parameters": {
+        "url": "=https://spencerfranken2025.mystagingwebsite.com",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        0
+      ],
+      "name": "Pull Latest Sermon (WordPress)",
+      "id": "2b17a6df-c13d-4b97-8438-d5d15a5a6983"
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = $json?.content?.rendered || '';\n// strip scripts/styles, tags, collapse spaces, quick-fix a few entities\nconst text = html\n  .replace(/<script[\\s\\S]*?<\\/script>/gi, '')\n  .replace(/<style[\\s\\S]*?<\\/style>/gi, '')\n  .replace(/<[^>]+>/g, ' ')\n  .replace(/\\s+/g, ' ')\n  .replace(/&nbsp;/g, ' ')\n  .replace(/&#8217;|&rsquo;/g, \"'\")\n  .replace(/&quot;/g, '\"')\n  .trim();\n\nreturn [{\n  json: {\n    id: $json.id,\n    title: $json.title?.rendered || '',\n    link: $json.link || '',\n    transcript: text\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "name": "Clean Transcript",
+      "id": "05f441c5-e9d1-40fe-b206-4d6d6b1dfef5"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Write a few Facebook captions for a church sermon post.\n- Hook: 1–2 sentences.\n- Summary: 2–3 sentences.\n- End with: 'Watch the full sermon:' + link.\n- Keep under 900 characters.\n- Reformed Christian tone.\n\nTitle: {{$json.title}}\nTranscript: {{$json.transcript}}\nLink: {{$json.link}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        672,
+        0
+      ],
+      "name": "Generate Facebook Caption (OpenAI)",
+      "id": "bf88271b-dc1c-4163-91eb-3a518ab1aca0",
+      "credentials": {
+        "openAiApi": {
+          "id": "uHhM3GMtCxg9mo7L",
+          "name": "5MT n8n Sermon Publishing Workflow OpenAI Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "path": "wordpress-to-facebook",
+        "options": {
+          "responseData": {
+            "responseBody": "Prompt received. Regenerating post."
+          }
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        1104,
+        208
+      ],
+      "name": "Slack Webhook (New Prompt Input)",
+      "id": "88fcae61-2b66-424a-86cc-2eeb79329a62",
+      "webhookId": "4eda0661-31f5-4125-8096-f517b216c140"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ $json.prompt || 'Please regenerate the caption with new input.' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        1328,
+        208
+      ],
+      "name": "Regenerate Caption (OpenAI)",
+      "id": "27b66fff-a7a3-476b-a5be-672ea2b154e8",
+      "credentials": {
+        "openAiApi": {
+          "id": "uHhM3GMtCxg9mo7L",
+          "name": "5MT n8n Sermon Publishing Workflow OpenAI Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.decision }}",
+              "rightValue": "approve",
+              "operation": "equal",
+              "id": "2e984e8a-be57-4962-91d5-8abe583be9cd"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        0
+      ],
+      "name": "If Approved to Post?",
+      "id": "9efa0058-8b9d-4cb3-8a7d-1fa4bca69811"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://graph.facebook.com/v18.0/' + $env.FB_PAGE_ID + '/feed' }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1984,
+        0
+      ],
+      "name": "Post to Facebook",
+      "id": "99f1df2a-cb8b-4137-ba1c-211b99d851a3"
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "spencer.franken@gmail.com",
+        "subject": "Approval needed to continue",
+        "message": "=Review the following proposed content for this week's Facebook post about this week's sermon:\nhttps://spencerfranken2025.mystagingwebsite.com\n\nApprove it or deny it. If approved, content will be posted. If denied, content must be edited and then approved in order for the post to be created.",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1120,
+        16
+      ],
+      "id": "bc54cc92-370f-45b8-99b9-ba4828497141",
+      "name": "Send message and wait for response",
+      "webhookId": "2a17f01d-c71e-442e-be80-646d9c60e15c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "FrChcvvpoXIaqSow",
+          "name": "Gmail account 8"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Pull Latest Sermon (WordPress)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pull Latest Sermon (WordPress)": {
+      "main": [
+        [
+          {
+            "node": "Clean Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean Transcript": {
+      "main": [
+        [
+          {
+            "node": "Generate Facebook Caption (OpenAI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Facebook Caption (OpenAI)": {
+      "main": [
+        [
+          {
+            "node": "Send message and wait for response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Approved to Post?": {
+      "main": [
+        [
+          {
+            "node": "Post to Facebook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Regenerate Caption (OpenAI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Webhook (New Prompt Input)": {
+      "main": [
+        [
+          {
+            "node": "Regenerate Caption (OpenAI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Regenerate Caption (OpenAI)": {
+      "main": [
+        [
+          {
+            "node": "Send message and wait for response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send message and wait for response": {
+      "main": [
+        [
+          {
+            "node": "If Approved to Post?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e1ff365d-0bb2-4bbd-b149-9ab4c9e3acbb",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f318f1eeb582bef69a56797ad1f28184a54cfe51b0e461ee190c5740946ea07e"
+  },
+  "id": "QBx3wQNVlFqm9kml",
+  "tags": []
+}

@@ -1,7 +1,5 @@
 # Wordpress-to-OpenAI-to-Facebook-Workflow
 An updated version of the Wrordpress to Facebook Workflow but did not use the google docs certification. 
-# n8n Social Media Posting Automation
-
 Part of the **SermonPressAI** open-source workflow collection, this repository contains **n8n workflows for churches that automatically generate and post sermon announcements to social media**.
 
 When a church uploads its latest sermon, these workflows pull the sermon’s title, passage, description, and link, then format them into multiple ready-to-use post options for platforms like Facebook. Each post is biblically grounded, engaging, and written to encourage viewers to watch the full sermon.
